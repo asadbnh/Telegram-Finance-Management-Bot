@@ -1,5 +1,5 @@
 from aiogram import Router, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
 from bot.db.models import User, UserRole
 from bot.keyboards.inline_keyboards import (
@@ -30,11 +30,36 @@ async def safe_edit_or_reply(callback: CallbackQuery, text: str, reply_markup=No
         await callback.message.answer(text=text, reply_markup=reply_markup, parse_mode="HTML")
 
 
+@common_router.message(Command("help"))
+async def cmd_help(message: Message):
+    help_text = (
+        "📖 <b>دليل الاستخدام السريع للبوت:</b>\n\n"
+        "1️⃣ <b>تسجيل رسوم طالب:</b> من قسم <code>👨‍🎓 الطلاب</code> 👈 <code>💳 تسجيل رسوم طالب</code>.\n"
+        "2️⃣ <b>تسجيل مصروف:</b> من قسم <code>💸 المصروفات</code> 👈 <code>➕ إضافة مصروف جديد</code>.\n"
+        "3️⃣ <b>تسجيل راعٍ:</b> من قسم <code>🏢 الرعاة</code> 👈 <code>➕ إضافة راعٍ جديد</code>.\n"
+        "4️⃣ <b>تصدير التقارير:</b> من قسم <code>📁 التصدير</code> لـ Excel أو PDF.\n"
+        "5️⃣ <b>الاستعلام الفوري:</b> من قسم <code>📊 التقارير</code> لمشاهدة الميزانية الصافية."
+    )
+    await message.answer(text=help_text, parse_mode="HTML")
+
+
+@common_router.message(Command("admin"))
+async def cmd_admin(message: Message, user_role: UserRole):
+    if user_role not in [UserRole.SUPER_ADMIN, UserRole.FINANCE_ADMIN]:
+        await message.answer(UNAUTHORIZED_TEXT, parse_mode="HTML")
+        return
+    await message.answer(
+        text="⚙️ <b>لوحة الإدارة والصلاحيات والنسخ الاحتياطي</b>\n\nاختر الإجراء المطلوب:",
+        reply_markup=get_admin_menu_keyboard(),
+        parse_mode="HTML"
+    )
+
+
 @common_router.message(CommandStart())
 async def cmd_start(message: Message, db_user: User, user_role: UserRole):
     welcome_text = (
-        f"👋 <b>مرحباً بك في بوت ابداع مهندسt</b>\n\n"
-        f"النظام المالي الموحد لإدارة إيرادات ومصروفات دفعة تخرج <b>«ابداع مهندس»</b>.\n\n"
+        f"👋 <b>مرحباً بك في بوت Yemen Cyber Finance Bot</b>\n\n"
+        f"النظام المالي الموحد لإدارة إيرادات ومصروفات دفعة تخرج <b>«يمن سايبر»</b>.\n\n"
         f"👤 <b>اسمك:</b> {db_user.full_name}\n"
         f"🔰 <b>صلاحيتك:</b> {db_user.role.value}\n\n"
         f"⚠️ <i>ملاحظة: قد يتأخر البوت في الرد أحياناً بسبب استيقاظ السيرفر.</i>\n\n"
@@ -49,7 +74,7 @@ async def cmd_start(message: Message, db_user: User, user_role: UserRole):
 
 @common_router.callback_query(F.data == "main_menu")
 async def cb_main_menu(callback: CallbackQuery, db_user: User, user_role: UserRole):
-    text = f"🏠 <b>القائمة الرئيسية - ابداع مهندس</b>"
+    text = f"🏠 <b>القائمة الرئيسية - Yemen Cyber Finance Bot</b>"
     await safe_edit_or_reply(callback, text=text, reply_markup=get_main_menu_keyboard(user_role))
     await callback.answer()
 
