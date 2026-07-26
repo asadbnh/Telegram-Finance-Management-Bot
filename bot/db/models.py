@@ -150,7 +150,7 @@ class Notification(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     group_id = Column(BigInteger, nullable=False)
     message_text = Column(Text, nullable=False)
-    status = Column(String(50), default="SENT", nullable=False)
+    status = Column(String(255), default="SENT", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
