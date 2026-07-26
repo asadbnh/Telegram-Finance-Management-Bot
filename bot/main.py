@@ -26,12 +26,20 @@ async def health_handler(request):
     return web.Response(text="OK - Yemen Cyber Finance Bot is active")
 
 
-async def main():
+async def on_startup(bot: Bot):
+    if settings.WEBHOOK_URL and settings.WEBHOOK_URL.strip():
+        webhook_path = "/webhook"
+        full_url = f"{settings.WEBHOOK_URL.rstrip('/')}{webhook_path}"
+        await bot.set_webhook(url=full_url, drop_pending_updates=True)
+        logger.info(f"Webhook set successfully to: {full_url}")
+
+
+def main():
     logger.info("Initializing Yemen Cyber Finance Bot...")
 
     # 1. Initialize Database Tables
     try:
-        await init_models()
+        asyncio.run(init_models())
         logger.info("Database tables initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to initialize database tables: {e}")
@@ -60,13 +68,10 @@ async def main():
 
     port = int(os.getenv("PORT", 8000))
 
-    # 5. Check if WEBHOOK_URL is configured (Auto Wakeup on Render/Cloud)
+    # 5. Check Webhook mode vs Long Polling mode
     if settings.WEBHOOK_URL and settings.WEBHOOK_URL.strip():
-        webhook_path = "/webhook"
-        full_url = f"{settings.WEBHOOK_URL.rstrip('/')}{webhook_path}"
-        logger.info(f"Configuring Webhook mode on URL: {full_url}")
-
-        await bot.set_webhook(url=full_url, drop_pending_updates=True)
+        logger.info("Configuring Webhook mode with aiohttp web server...")
+        dp.startup.register(on_startup)
 
         app = web.Application()
         app.router.add_get("/", health_handler)
@@ -76,39 +81,33 @@ async def main():
             dispatcher=dp,
             bot=bot
         )
-        webhook_requests_handler.register(app, path=webhook_path)
+        webhook_requests_handler.register(app, path="/webhook")
         setup_application(app, dp, bot=bot)
 
-        runner = web.AppRunner(app)
-        await runner.setup()
-        site = web.TCPSite(runner, "0.0.0.0", port)
-        await site.start()
-        logger.info(f"Webhook HTTP server started on 0.0.0.0:{port}")
-        
-        # Keep web app running
-        await asyncio.Event().wait()
+        web.run_app(app, host="0.0.0.0", port=port)
     else:
-        # Long Polling Mode
-        try:
-            await bot.delete_webhook(drop_pending_updates=True)
-            logger.info("Deleted old webhook. Starting Long Polling mode...")
-            
-            # Start lightweight health server for Render
-            app = web.Application()
-            app.router.add_get("/", health_handler)
-            app.router.add_get("/health", health_handler)
-            runner = web.AppRunner(app)
-            await runner.setup()
-            site = web.TCPSite(runner, "0.0.0.0", port)
-            await site.start()
+        async def run_polling():
+            try:
+                await bot.delete_webhook(drop_pending_updates=True)
+                logger.info("Deleted old webhook. Starting Long Polling mode...")
+                
+                app = web.Application()
+                app.router.add_get("/", health_handler)
+                app.router.add_get("/health", health_handler)
+                runner = web.AppRunner(app)
+                await runner.setup()
+                site = web.TCPSite(runner, "0.0.0.0", port)
+                await site.start()
 
-            await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
-        finally:
-            await bot.session.close()
+                await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+            finally:
+                await bot.session.close()
+
+        asyncio.run(run_polling())
 
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        main()
     except (KeyboardInterrupt, SystemExit):
         logger.info("Bot stopped.")
