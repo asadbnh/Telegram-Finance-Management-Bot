@@ -34,12 +34,12 @@ async def on_startup(bot: Bot):
         logger.info(f"Webhook set successfully to: {full_url}")
 
 
-def main():
+async def main():
     logger.info("Initializing Yemen Cyber Finance Bot...")
 
-    # 1. Initialize Database Tables
+    # 1. Initialize Database Tables inside the current main event loop
     try:
-        asyncio.run(init_models())
+        await init_models()
         logger.info("Database tables initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to initialize database tables: {e}")
@@ -84,30 +84,34 @@ def main():
         webhook_requests_handler.register(app, path="/webhook")
         setup_application(app, dp, bot=bot)
 
-        web.run_app(app, host="0.0.0.0", port=port)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "0.0.0.0", port)
+        await site.start()
+        logger.info(f"Webhook HTTP server started on 0.0.0.0:{port}")
+
+        await asyncio.Event().wait()
     else:
-        async def run_polling():
-            try:
-                await bot.delete_webhook(drop_pending_updates=True)
-                logger.info("Deleted old webhook. Starting Long Polling mode...")
-                
-                app = web.Application()
-                app.router.add_get("/", health_handler)
-                app.router.add_get("/health", health_handler)
-                runner = web.AppRunner(app)
-                await runner.setup()
-                site = web.TCPSite(runner, "0.0.0.0", port)
-                await site.start()
+        # Long Polling Mode
+        try:
+            await bot.delete_webhook(drop_pending_updates=True)
+            logger.info("Deleted old webhook. Starting Long Polling mode...")
+            
+            app = web.Application()
+            app.router.add_get("/", health_handler)
+            app.router.add_get("/health", health_handler)
+            runner = web.AppRunner(app)
+            await runner.setup()
+            site = web.TCPSite(runner, "0.0.0.0", port)
+            await site.start()
 
-                await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
-            finally:
-                await bot.session.close()
-
-        asyncio.run(run_polling())
+            await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+        finally:
+            await bot.session.close()
 
 
 if __name__ == "__main__":
     try:
-        main()
+        asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logger.info("Bot stopped.")
