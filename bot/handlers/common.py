@@ -33,8 +33,8 @@ async def safe_edit_or_reply(callback: CallbackQuery, text: str, reply_markup=No
 @common_router.message(CommandStart())
 async def cmd_start(message: Message, db_user: User, user_role: UserRole):
     welcome_text = (
-        f"👋 <b>مرحباً بك في بوت Yemen Cyber Finance Bot</b>\n\n"
-        f"النظام المالي الموحد لإدارة إيرادات ومصروفات دفعة تخرج <b>«يمن سايبر»</b>.\n\n"
+        f"👋 <b>مرحباً بك في بوت ابداع مهندسt</b>\n\n"
+        f"النظام المالي الموحد لإدارة إيرادات ومصروفات دفعة تخرج <b>«ابداع مهندس»</b>.\n\n"
         f"👤 <b>اسمك:</b> {db_user.full_name}\n"
         f"🔰 <b>صلاحيتك:</b> {db_user.role.value}\n\n"
         f"⚠️ <i>ملاحظة: قد يتأخر البوت في الرد أحياناً بسبب استيقاظ السيرفر.</i>\n\n"
