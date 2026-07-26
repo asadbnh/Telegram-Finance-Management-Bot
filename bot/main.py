@@ -22,11 +22,28 @@ from bot.handlers.exports import exports_router
 from bot.handlers.super_admin import super_admin_router
 
 
+from aiogram.types import BotCommand, BotCommandScopeDefault
+
+
 async def health_handler(request):
     return web.Response(text="OK - Yemen Cyber Finance Bot is active")
 
 
+async def setup_bot_commands(bot: Bot):
+    commands = [
+        BotCommand(command="start", description="🏠 القائمة الرئيسية والترحيب"),
+        BotCommand(command="help", description="📖 دليل استخدام البوت والتعليمات"),
+        BotCommand(command="admin", description="⚙️ لوحة الإدارة والتحكم"),
+    ]
+    try:
+        await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
+        logger.info("Bot commands registered successfully with Telegram.")
+    except Exception as e:
+        logger.warning(f"Could not register bot commands: {e}")
+
+
 async def on_startup(bot: Bot):
+    await setup_bot_commands(bot)
     if settings.WEBHOOK_URL and settings.WEBHOOK_URL.strip():
         webhook_path = "/webhook"
         full_url = f"{settings.WEBHOOK_URL.rstrip('/')}{webhook_path}"
@@ -105,6 +122,7 @@ async def main():
             site = web.TCPSite(runner, "0.0.0.0", port)
             await site.start()
 
+            await setup_bot_commands(bot)
             await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
         finally:
             await bot.session.close()
