@@ -25,15 +25,27 @@ class FinanceService:
 
     @staticmethod
     async def generate_op_number(session: AsyncSession, prefix: str) -> str:
-        """Generates sequential operation numbers e.g. INC-0001 or EXP-0001."""
+        """Generates sequential operation numbers e.g. INC-0001 or EXP-0001 safely."""
         if prefix == "INC":
-            res = await session.execute(select(func.count(Income.id)))
-            count = res.scalar_one() + 1
-            return f"INC-{count:04d}"
+            res = await session.execute(select(func.coalesce(func.max(Income.id), 0)))
+            max_id = res.scalar_one()
+            next_num = max_id + 1
+            while True:
+                candidate = f"INC-{next_num:04d}"
+                chk = await session.execute(select(Income.id).where(Income.op_number == candidate))
+                if chk.scalar_one_or_none() is None:
+                    return candidate
+                next_num += 1
         else:
-            res = await session.execute(select(func.count(Expense.id)))
-            count = res.scalar_one() + 1
-            return f"EXP-{count:04d}"
+            res = await session.execute(select(func.coalesce(func.max(Expense.id), 0)))
+            max_id = res.scalar_one()
+            next_num = max_id + 1
+            while True:
+                candidate = f"EXP-{next_num:04d}"
+                chk = await session.execute(select(Expense.id).where(Expense.op_number == candidate))
+                if chk.scalar_one_or_none() is None:
+                    return candidate
+                next_num += 1
 
     @staticmethod
     async def add_income(
