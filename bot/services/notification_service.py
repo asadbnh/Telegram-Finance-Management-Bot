@@ -32,7 +32,7 @@ class NotificationService:
                 logger.info(f"Notification sent successfully to group {group_id}")
             except Exception as e:
                 logger.error(f"Failed to send notification to group {group_id}: {e}")
-                status = f"FAILED: {e}"
+                status = f"FAILED: {e}"[:250]
 
             notification = Notification(
                 group_id=group_id,
