@@ -49,7 +49,7 @@ async def cmd_start(message: Message, db_user: User, user_role: UserRole):
 
 @common_router.callback_query(F.data == "main_menu")
 async def cb_main_menu(callback: CallbackQuery, db_user: User, user_role: UserRole):
-    text = f"🏠 <b>القائمة الرئيسية - Yemen Cyber Finance Bot</b>"
+    text = f"🏠 <b>القائمة الرئيسية - ابداع مهندس</b>"
     await safe_edit_or_reply(callback, text=text, reply_markup=get_main_menu_keyboard(user_role))
     await callback.answer()
 
