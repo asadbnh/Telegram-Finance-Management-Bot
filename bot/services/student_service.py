@@ -17,6 +17,10 @@ class StudentService:
         total_required: float,
         performed_by_user_id: int
     ) -> Student:
+        chk = await session.execute(select(Student.id).where(Student.student_code == student_code))
+        if chk.scalar_one_or_none() is not None:
+            raise ValueError(f"الرقم الأكاديمي ({student_code}) مستخدم وموجود بالفعل لطالب آخر!")
+
         student = Student(
             name=name,
             student_code=student_code,

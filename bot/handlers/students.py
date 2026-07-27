@@ -2,9 +2,10 @@ from aiogram import Router, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.db.models import User, UserRole
+from bot.db.models import User, UserRole, Student
 from bot.services.student_service import StudentService
 from bot.services.finance_service import FinanceService
 from bot.services.notification_service import NotificationService, format_currency
@@ -51,8 +52,18 @@ async def process_student_name(message: Message, state: FSMContext):
 
 
 @students_router.message(AddStudentFSM.student_code)
-async def process_student_code(message: Message, state: FSMContext):
-    await state.update_data(student_code=message.text.strip())
+async def process_student_code(message: Message, state: FSMContext, db_session: AsyncSession):
+    code = message.text.strip()
+    res = await db_session.execute(select(Student.id).where(Student.student_code == code))
+    if res.scalar_one_or_none() is not None:
+        await message.answer(
+            f"⚠️ <b>الرقم الأكاديمي (<code>{code}</code>) مستخدم وموجود بالفعل لطالب آخر!</b>\n\nيرجى إدخال رقم أكاديمي مختلف:",
+            reply_markup=get_back_keyboard(),
+            parse_mode="HTML"
+        )
+        return
+
+    await state.update_data(student_code=code)
     await state.set_state(AddStudentFSM.phone)
     await message.answer("📱 أدخل <b>رقم هاتف الطالب</b> (أو أرسل 'لا يوجد'):", reply_markup=get_back_keyboard(), parse_mode="HTML")
 
@@ -72,20 +83,24 @@ async def process_student_total(message: Message, state: FSMContext, db_user: Us
     try:
         total_required = float(message.text.strip().replace(",", ""))
         if total_required <= 0:
-            raise ValueError()
+            raise ValueError("المبلغ يجب أن يكون رقم صحيح وموجب.")
     except ValueError:
         await message.answer("⚠️ يرجى إدخال رقم صحيح وموجب للمبلغ.")
         return
 
     data = await state.get_data()
-    student = await StudentService.add_student(
-        session=db_session,
-        name=data["name"],
-        student_code=data["student_code"],
-        phone=data.get("phone"),
-        total_required=total_required,
-        performed_by_user_id=db_user.id
-    )
+    try:
+        student = await StudentService.add_student(
+            session=db_session,
+            name=data["name"],
+            student_code=data["student_code"],
+            phone=data.get("phone"),
+            total_required=total_required,
+            performed_by_user_id=db_user.id
+        )
+    except ValueError as err:
+        await message.answer(f"⚠️ {err}", reply_markup=get_back_keyboard(), parse_mode="HTML")
+        return
 
     await db_session.commit()
     await state.clear()
